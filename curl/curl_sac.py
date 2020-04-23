@@ -5,8 +5,8 @@ import torch.nn.functional as F
 import copy
 import math
 
-import utils
-from encoder import make_encoder
+import curl.utils as utils
+from curl.encoder import make_encoder
 
 LOG_FREQ = 10000
 
@@ -103,6 +103,7 @@ class Actor(nn.Module):
         return mu, pi, log_pi, log_std
 
     def log(self, L, step, log_freq=LOG_FREQ):
+        return
         if step % log_freq != 0:
             return
 
@@ -169,6 +170,7 @@ class Critic(nn.Module):
         return q1, q2
 
     def log(self, L, step, log_freq=LOG_FREQ):
+        return
         if step % log_freq != 0:
             return
 
@@ -356,8 +358,8 @@ class CurlSacAgent(object):
         with torch.no_grad():
             obs = torch.FloatTensor(obs).to(self.device)
             obs = obs.unsqueeze(0)
-            mu, pi, _, _ = self.actor(obs, compute_log_pi=False)
-            return pi.cpu().data.numpy().flatten()
+            mu, pi, _, logstd = self.actor(obs, compute_log_pi=False)
+            return pi.cpu().data.numpy().flatten(), mu.cpu().data.numpy().flatten(), logstd.cpu().data.numpy().flatten()
 
     def update_critic(self, obs, action, reward, next_obs, not_done, L, step):
         with torch.no_grad():
@@ -373,7 +375,7 @@ class CurlSacAgent(object):
         critic_loss = F.mse_loss(current_Q1,
                                  target_Q) + F.mse_loss(current_Q2, target_Q)
         if step % self.log_interval == 0:
-            L.log('train_critic/loss', critic_loss, step)
+            print('train_critic/loss', critic_loss, step)
 
 
         # Optimize the critic
@@ -392,12 +394,12 @@ class CurlSacAgent(object):
         actor_loss = (self.alpha.detach() * log_pi - actor_Q).mean()
 
         if step % self.log_interval == 0:
-            L.log('train_actor/loss', actor_loss, step)
-            L.log('train_actor/target_entropy', self.target_entropy, step)
+            print('train_actor/loss', actor_loss, step)
+            print('train_actor/target_entropy', self.target_entropy, step)
         entropy = 0.5 * log_std.shape[1] * \
             (1.0 + np.log(2 * np.pi)) + log_std.sum(dim=-1)
-        if step % self.log_interval == 0:                                    
-            L.log('train_actor/entropy', entropy.mean(), step)
+        if step % self.log_interval == 0:
+            print('train_actor/entropy', entropy.mean(), step)
 
         # optimize the actor
         self.actor_optimizer.zero_grad()
@@ -410,8 +412,8 @@ class CurlSacAgent(object):
         alpha_loss = (self.alpha *
                       (-log_pi - self.target_entropy).detach()).mean()
         if step % self.log_interval == 0:
-            L.log('train_alpha/loss', alpha_loss, step)
-            L.log('train_alpha/value', self.alpha, step)
+            print('train_alpha/loss', alpha_loss, step)
+            print('train_alpha/value', self.alpha, step)
         alpha_loss.backward()
         self.log_alpha_optimizer.step()
 
@@ -431,7 +433,7 @@ class CurlSacAgent(object):
         self.encoder_optimizer.step()
         self.cpc_optimizer.step()
         if step % self.log_interval == 0:
-            L.log('train/curl_loss', loss, step)
+            print('train/curl_loss', loss, step)
 
 
     def update(self, replay_buffer, L, step):
@@ -441,7 +443,7 @@ class CurlSacAgent(object):
             obs, action, reward, next_obs, not_done = replay_buffer.sample_proprio()
     
         if step % self.log_interval == 0:
-            L.log('train/batch_reward', reward.mean(), step)
+            print('train/batch_reward', reward.mean(), step)
 
         self.update_critic(obs, action, reward, next_obs, not_done, L, step)
 

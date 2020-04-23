@@ -8,14 +8,15 @@ import sys
 import random
 import time
 import json
-import dmc2gym
+#import dmc2gym
 import copy
+from rl_experiments.experiments.dm_lab.env import DMLABEnv
 
-import utils
-from logger import Logger
-from video import VideoRecorder
+import curl.utils as utils
+from curl.logger import Logger
+from curl.video import VideoRecorder
 
-from curl_sac import CurlSacAgent
+from curl.curl_sac import CurlSacAgent
 from torchvision import transforms
 
 
@@ -24,13 +25,13 @@ def parse_args():
     # environment
     parser.add_argument('--domain_name', default='cheetah')
     parser.add_argument('--task_name', default='run')
-    parser.add_argument('--pre_transform_image_size', default=100, type=int)
+    parser.add_argument('--pre_transform_image_size', default=84, type=int)
 
-    parser.add_argument('--image_size', default=84, type=int)
+    parser.add_argument('--image_size', default=64, type=int)
     parser.add_argument('--action_repeat', default=1, type=int)
     parser.add_argument('--frame_stack', default=3, type=int)
     # replay buffer
-    parser.add_argument('--replay_buffer_capacity', default=100000, type=int)
+    parser.add_argument('--replay_buffer_capacity', default=50000, type=int)
     # train
     parser.add_argument('--agent', default='curl_sac', type=str)
     parser.add_argument('--init_steps', default=1000, type=int)
@@ -48,8 +49,8 @@ def parse_args():
     # actor
     parser.add_argument('--actor_lr', default=1e-3, type=float)
     parser.add_argument('--actor_beta', default=0.9, type=float)
-    parser.add_argument('--actor_log_std_min', default=-10, type=float)
-    parser.add_argument('--actor_log_std_max', default=2, type=float)
+    parser.add_argument('--actor_log_std_min', default=-2, type=float)
+    parser.add_argument('--actor_log_std_max', default=3, type=float)
     parser.add_argument('--actor_update_freq', default=2, type=int)
     # encoder
     parser.add_argument('--encoder_type', default='pixel', type=str)
@@ -155,16 +156,23 @@ def main():
     if args.seed == -1: 
         args.__dict__["seed"] = np.random.randint(1,1000000)
     utils.set_seed_everywhere(args.seed)
-    env = dmc2gym.make(
-        domain_name=args.domain_name,
-        task_name=args.task_name,
-        seed=args.seed,
-        visualize_reward=False,
-        from_pixels=(args.encoder_type == 'pixel'),
-        height=args.pre_transform_image_size,
-        width=args.pre_transform_image_size,
-        frame_skip=args.action_repeat
-    )
+
+    config = {
+        'fps': str(60),
+        'width': str(84),
+        'height': str(84)
+    }
+    env = DMLABEnv('seekavoid_arena_01', config, ac_space_type='cont')
+    # env = dmc2gym.make(
+    #     domain_name=args.domain_name,
+    #     task_name=args.task_name,
+    #     seed=args.seed,
+    #     visualize_reward=False,
+    #     from_pixels=(args.encoder_type == 'pixel'),
+    #     height=args.pre_transform_image_size,
+    #     width=args.pre_transform_image_size,
+    #     frame_skip=args.action_repeat
+    # )
  
     env.seed(args.seed)
 
